@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+/* Design tokens mirror the Frost block theme (Outfit + the standard
+   base/contrast/primary/secondary/neutral palette, fluid clamps for
+   spacing and headlines between 640px and 1200px viewports). */
+
+@theme {
+  --color-base: #ffffff;
+  --color-contrast: #000000;
+  --color-primary: #0000ff;
+  --color-secondary: #000099;
+  --color-neutral: #eeeeee;
+
+  --font-sans: var(--font-outfit), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  --font-system: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+
+  --text-x-small: 1rem;
+  --text-small: 1.125rem;
+  --text-medium: clamp(1.125rem, 1.7vw, 1.25rem);
+  --text-large: clamp(1.25rem, 2vw, 1.5rem);
+  --text-x-large: clamp(1.5rem, 2.5vw, 1.875rem);
+  --text-max-36: clamp(1.875rem, 3vw, 2.25rem);
+  --text-max-48: clamp(2.25rem, 4vw, 3rem);
+  --text-max-60: clamp(2.625rem, 5vw, 3.75rem);
+  --text-max-72: clamp(3rem, 6vw, 4.5rem);
+
+  --font-weight-thin: 100;
+  --font-weight-extralight: 200;
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+
+  --leading-body: 1.75;
+  --leading-heading: 1.1;
+  --leading-medium: 1.5;
+  --leading-one: 1;
+
+  --spacing-x-small: 1.25rem;
+  --spacing-small: clamp(1.875rem, 4vw, 2.5rem);
+  --spacing-medium: clamp(2.5rem, 6vw, 3.75rem);
+  --spacing-large: clamp(3.125rem, 8vw, 5rem);
+  --spacing-x-large: clamp(3.75rem, 10vw, 6.25rem);
+
+  --container-content: 40rem;
+  --container-wide: 75rem;
+  --container-headline: 14ch;
+
+  --background-image-hero-bloom:
+    radial-gradient(circle at 78% 18%, rgba(0, 0, 255, 0.35) 0%, transparent 45%),
+    radial-gradient(circle at 12% 88%, rgba(0, 0, 153, 0.25) 0%, transparent 55%);
+  --background-image-cta-bloom:
+    radial-gradient(circle at 50% 100%, rgba(0, 0, 255, 0.3) 0%, transparent 50%);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-medium);
+  line-height: var(--leading-body);
+  color: var(--color-contrast);
+  background-color: var(--color-base);
+}
+
+/* Tailwind v4 preflight zeroes list-style/padding on ul/ol. Restore
+   it for WP-rendered lists so block markers and indentation come
+   through. */
+.wp-block-list {
+  list-style: revert;
+  padding-inline-start: revert;
+  margin: revert;
+}
