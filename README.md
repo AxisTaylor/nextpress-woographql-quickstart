@@ -77,7 +77,9 @@ src/
 ## What's NOT in the repo
 
 This is the **DIY** path described in the tutorial. The premium [WooGraphQL Pro subscription](https://woographql.com/pro)
-collapses the auth/session/cart machinery into typed hooks and components — see the
-[`@woographql/next`](https://www.npmjs.com/package/@woographql/next) /
-[`@woographql/react-hooks`](https://www.npmjs.com/package/@woographql/react-hooks) packages and
-the [`create-woonext-app`](https://www.npmjs.com/package/create-woonext-app) CLI for a faster path.
+collapses the auth/session/cart machinery into typed hooks and components:
+
+- [**@woographql/next**](https://woographql.com/docs/woographql-next/components) — shadcn-style component generation for the full storefront surface (`CartOptions` for every product type, etc.)
+- [**@woographql/react-hooks**](https://woographql.com/docs/woographql-react-hooks/getting-started) — `useSessionManager`, `useCartMutations`, and the rest of the lifecycle hooks
+- [**@woographql/session-utils**](https://woographql.com/docs/woographql-session-utils/getting-started) — lower-level building blocks behind the hooks
+- [**create-woonext-app**](https://woographql.com/docs/create-woonext-app/getting-started) — `npx create-woonext-app my-shop` scaffolds a working storefront in one command
