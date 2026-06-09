@@ -4,7 +4,6 @@ import { headers } from "next/headers";
 import { Outfit } from "next/font/google";
 import { WPHead, WPFooter } from "@axistaylor/nextpress";
 import { fetchAssetsByUri, fetchGlobalStyles } from "@/lib/wp";
-import { SessionRefresher } from "@/components/SessionRefresher";
 
 import "@/app/globals.css";
 
@@ -53,7 +52,6 @@ export default async function WordPressLayout({ children }: Readonly<PropsWithCh
       <body className="min-h-full flex flex-col">
         <main className="flex-1 flex flex-col">{children}</main>
         <WPFooter scripts={scripts} pathname={uri} />
-        <SessionRefresher />
       </body>
     </html>
   );

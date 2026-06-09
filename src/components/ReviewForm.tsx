@@ -5,63 +5,44 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-const guestSchema = z.object({
-  kind: z.literal("guest"),
+const schema = z.object({
   rating: z.number().int().min(1, "Pick a rating").max(5),
   content: z.string().min(8, "Review must be at least 8 characters"),
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Enter a valid email"),
 });
 
-const authedSchema = z.object({
-  kind: z.literal("authed"),
-  rating: z.number().int().min(1, "Pick a rating").max(5),
-  content: z.string().min(8, "Review must be at least 8 characters"),
-  userId: z.number().int().min(1),
-});
-
-const schema = z.discriminatedUnion("kind", [guestSchema, authedSchema]);
 type ReviewFormValues = z.infer<typeof schema>;
 
 interface ReviewFormProps {
   productId: number;
   productName: string;
-  customerUserId?: number | null;
 }
 
 const STARS = [1, 2, 3, 4, 5] as const;
 
-export function ReviewForm({ productId, productName, customerUserId }: ReviewFormProps) {
+export function ReviewForm({ productId, productName }: ReviewFormProps) {
   const router = useRouter();
-  const isAuthed = !!customerUserId;
   const [submitState, setSubmitState] = useState<{ status: "idle" | "ok" | "error"; message?: string }>({ status: "idle" });
   const [hoveredStar, setHoveredStar] = useState(0);
 
   const { control, handleSubmit, register, formState, reset } = useForm<ReviewFormValues>({
     resolver: zodResolver(schema),
-    defaultValues: isAuthed
-      ? { kind: "authed", rating: 0, content: "", userId: customerUserId }
-      : { kind: "guest", rating: 0, content: "", name: "", email: "" },
+    defaultValues: { rating: 0, content: "", name: "", email: "" },
   });
 
   async function onSubmit(values: ReviewFormValues) {
     setSubmitState({ status: "idle" });
-    const body: Record<string, unknown> = {
-      productId,
-      rating: values.rating,
-      content: values.content,
-    };
-    if (values.kind === "guest") {
-      body.name = values.name;
-      body.email = values.email;
-    } else {
-      body.userId = values.userId;
-    }
-
     const res = await fetch("/api/product/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        productId,
+        rating: values.rating,
+        content: values.content,
+        name: values.name,
+        email: values.email,
+      }),
     });
     const json = await res.json().catch(() => ({}));
 
@@ -71,9 +52,7 @@ export function ReviewForm({ productId, productName, customerUserId }: ReviewFor
     }
 
     setSubmitState({ status: "ok", message: "Thanks — your review was submitted for moderation." });
-    reset(isAuthed
-      ? { kind: "authed", rating: 0, content: "", userId: customerUserId }
-      : { kind: "guest", rating: 0, content: "", name: "", email: "" });
+    reset({ rating: 0, content: "", name: "", email: "" });
     router.refresh();
   }
 
@@ -95,10 +74,7 @@ export function ReviewForm({ productId, productName, customerUserId }: ReviewFor
         render={({ field, fieldState }) => (
           <div className="flex flex-col gap-2">
             <label className="text-x-small uppercase tracking-[0.15em] font-semibold">Rating</label>
-            <div
-              className="inline-flex items-center gap-1"
-              onMouseLeave={() => setHoveredStar(0)}
-            >
+            <div className="inline-flex items-center gap-1" onMouseLeave={() => setHoveredStar(0)}>
               {STARS.map((n) => {
                 const active = (hoveredStar || field.value) >= n;
                 return (
@@ -149,40 +125,38 @@ export function ReviewForm({ productId, productName, customerUserId }: ReviewFor
         )}
       </div>
 
-      {!isAuthed && (
-        <div className="grid sm:grid-cols-2 gap-x-small">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="review-name" className="text-x-small uppercase tracking-[0.15em] font-semibold">
-              Name
-            </label>
-            <input
-              id="review-name"
-              {...register("name" as const)}
-              type="text"
-              autoComplete="name"
-              className="bg-base border border-contrast/15 px-3 py-2 text-medium focus:outline-none focus:border-primary"
-            />
-            {formState.errors.kind === undefined && "name" in formState.errors && (
-              <p className="text-small text-red-600">{(formState.errors as { name?: { message?: string } }).name?.message}</p>
-            )}
-          </div>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="review-email" className="text-x-small uppercase tracking-[0.15em] font-semibold">
-              Email
-            </label>
-            <input
-              id="review-email"
-              {...register("email" as const)}
-              type="email"
-              autoComplete="email"
-              className="bg-base border border-contrast/15 px-3 py-2 text-medium focus:outline-none focus:border-primary"
-            />
-            {"email" in formState.errors && (
-              <p className="text-small text-red-600">{(formState.errors as { email?: { message?: string } }).email?.message}</p>
-            )}
-          </div>
+      <div className="grid sm:grid-cols-2 gap-x-small">
+        <div className="flex flex-col gap-2">
+          <label htmlFor="review-name" className="text-x-small uppercase tracking-[0.15em] font-semibold">
+            Name
+          </label>
+          <input
+            id="review-name"
+            {...register("name")}
+            type="text"
+            autoComplete="name"
+            className="bg-base border border-contrast/15 px-3 py-2 text-medium focus:outline-none focus:border-primary"
+          />
+          {formState.errors.name && (
+            <p className="text-small text-red-600">{formState.errors.name.message}</p>
+          )}
         </div>
-      )}
+        <div className="flex flex-col gap-2">
+          <label htmlFor="review-email" className="text-x-small uppercase tracking-[0.15em] font-semibold">
+            Email
+          </label>
+          <input
+            id="review-email"
+            {...register("email")}
+            type="email"
+            autoComplete="email"
+            className="bg-base border border-contrast/15 px-3 py-2 text-medium focus:outline-none focus:border-primary"
+          />
+          {formState.errors.email && (
+            <p className="text-small text-red-600">{formState.errors.email.message}</p>
+          )}
+        </div>
+      </div>
 
       {submitState.status === "error" && (
         <p className="text-small text-red-600 bg-red-50 border border-red-200 px-3 py-2">

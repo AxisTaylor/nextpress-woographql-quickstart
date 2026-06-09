@@ -8,7 +8,7 @@ import {
 } from "@axistaylor/nextpress/proxyByWCR";
 
 /**
- * Bridge auth + Cart-Token cookies into proxied requests to WordPress.
+ * Bridge the Cart-Token cookie into proxied requests to WordPress.
  */
 export const proxy = async (request: NextRequest) => {
   const pathname = request.nextUrl.pathname;
@@ -18,18 +18,41 @@ export const proxy = async (request: NextRequest) => {
     (isWPAjaxRequest(pathname) || isWCAjaxRequest(pathname) || isWPRestRequest(pathname))
   ) {
     const sessionToken = request.cookies.get("sessionToken")?.value;
-    const authToken = request.cookies.get("authToken")?.value;
-
     if (sessionToken) {
       request.headers.set("Cart-Token", sessionToken);
-    }
-    if (authToken) {
-      request.headers.set("Authorization", `Bearer ${authToken}`);
     }
   }
 
   if (isProxiedRoute(pathname)) {
-    return await proxyByWCR(request);
+    // Proxy request to WordPress backend
+    const response = await proxyByWCR(request);
+
+    // Check if WordPress returned an updated Cart-Token
+    const updatedCartToken = response.headers.get('Cart-Token');
+
+    if (updatedCartToken) {
+      // Create a new Response with the proxied response body and headers
+      const nextResponse = new NextResponse(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+
+      // Set the updated Cart-Token cookie
+      nextResponse.cookies.set({
+        name: 'cartToken',
+        value: updatedCartToken,
+        path: '/', // CRITICAL: Ensure cookie is sent with all requests
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        sameSite: 'lax',
+      });
+
+      return nextResponse;
+    }
+
+    return response;
   }
 
   const headers = new Headers(request.headers);

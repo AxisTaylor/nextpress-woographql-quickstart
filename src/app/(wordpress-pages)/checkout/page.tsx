@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Content, nextImageParser } from "@axistaylor/nextpress";
 import { fetchPageByUri } from "@/lib/wp";
+import { CheckoutEmailCapture } from "@/components/CheckoutEmailCapture";
 
 export const metadata = {
   title: "Checkout — NextPress + WooGraphQL",
@@ -12,6 +13,7 @@ export default async function CheckoutPage() {
 
   return (
     <article className="flex-1 mx-auto w-full max-w-content px-x-small py-medium">
+      <CheckoutEmailCapture />
       <Content
         content={page.content}
         contentCssClasses={page.contentCssClasses}

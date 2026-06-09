@@ -7,7 +7,6 @@ const COOKIE_OPTS = { httpOnly: true, secure: true, sameSite: "lax" as const, pa
 async function readAuth() {
   const c = await cookies();
   return {
-    authToken: c.get("authToken")?.value ?? null,
     sessionToken: c.get("sessionToken")?.value ?? null,
   };
 }
@@ -32,6 +31,7 @@ interface CartActionPayload {
   action: "add" | "update" | "remove" | "clear" | "applyCoupon" | "removeCoupon";
   productId?: number;
   variationId?: number;
+  variation?: Array<{ attributeName: string; attributeValue: string }>;
   quantity?: number;
   key?: string;
   code?: string;
@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
       { input: {
         productId: payload.productId,
         variationId: payload.variationId,
+        variation: payload.variation,
         quantity: payload.quantity ?? 1,
       } },
       auth,

@@ -13,7 +13,6 @@ interface ProductTabsProps {
   reviewCount: number | null;
   defaultAttributes: ProductAttributeValue[];
   reviews: ProductReview[];
-  customerUserId?: number | null;
 }
 
 type TabKey = "description" | "attributes" | "reviews";
@@ -39,7 +38,6 @@ export function ProductTabs({
   reviewCount,
   defaultAttributes,
   reviews,
-  customerUserId,
 }: ProductTabsProps) {
   const grouped = groupAttributes(defaultAttributes);
   const attributesAvailable = Object.keys(grouped).length > 0;
@@ -155,11 +153,7 @@ export function ProductTabs({
               </ul>
             )}
 
-            <ReviewForm
-              productId={productId}
-              productName={productName}
-              customerUserId={customerUserId}
-            />
+            <ReviewForm productId={productId} productName={productName} />
           </div>
         )}
       </div>

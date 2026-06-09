@@ -6,9 +6,8 @@ interface ReviewPayload {
   productId: number;
   rating: number;
   content: string;
-  name?: string;
-  email?: string;
-  userId?: number;
+  name: string;
+  email: string;
 }
 
 function isValidRating(rating: unknown): rating is number {
@@ -18,30 +17,27 @@ function isValidRating(rating: unknown): rating is number {
 export async function POST(req: NextRequest) {
   const payload = (await req.json().catch(() => null)) as ReviewPayload | null;
 
-  if (!payload || !payload.productId || !isValidRating(payload.rating) || !payload.content?.trim()) {
+  if (
+    !payload ||
+    !payload.productId ||
+    !isValidRating(payload.rating) ||
+    !payload.content?.trim() ||
+    !payload.name?.trim() ||
+    !payload.email?.trim()
+  ) {
     return NextResponse.json({ error: "Missing or invalid review fields." }, { status: 400 });
   }
 
-  const isGuest = !payload.userId;
-  if (isGuest && (!payload.name?.trim() || !payload.email?.trim())) {
-    return NextResponse.json({ error: "Name and email are required for guest reviews." }, { status: 400 });
-  }
-
   const c = await cookies();
-  const authToken = c.get("authToken")?.value ?? null;
   const sessionToken = c.get("sessionToken")?.value ?? null;
 
   const input: Record<string, unknown> = {
     commentOn: payload.productId,
     rating: payload.rating,
     content: payload.content.trim(),
+    author: payload.name.trim(),
+    authorEmail: payload.email.trim(),
   };
-  if (isGuest) {
-    input.author = payload.name?.trim();
-    input.authorEmail = payload.email?.trim();
-  } else {
-    input.userId = payload.userId;
-  }
 
   const result = await gqlWithSession<{ writeReview: {
     rating: number | null;
@@ -60,7 +56,7 @@ export async function POST(req: NextRequest) {
       }
     }`,
     { input },
-    { authToken, sessionToken },
+    { sessionToken },
   );
 
   if (result.errors?.length) {

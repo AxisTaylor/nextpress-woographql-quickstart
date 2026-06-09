@@ -141,7 +141,6 @@ export interface WpPage {
 
 export async function fetchPageByUri(uri: string): Promise<WpPage | null> {
   const c = await cookies();
-  const authToken = c.get("authToken")?.value ?? null;
   const sessionToken = c.get("sessionToken")?.value ?? null;
 
   const { data } = await gqlWithSession<{
@@ -156,7 +155,7 @@ export async function fetchPageByUri(uri: string): Promise<WpPage | null> {
       }
     }`,
     { uri },
-    { authToken, sessionToken },
+    { sessionToken },
   );
 
   const page = data?.page;
@@ -229,7 +228,28 @@ export interface ProductReview {
   author: { node: { name: string } } | null;
 }
 
+export interface ProductAttribute {
+  id: string;
+  name: string;
+  label: string;
+  variation: boolean;
+  options: string[];
+}
+
+export interface ProductVariation {
+  databaseId: number;
+  name: string | null;
+  price: string | null;
+  regularPrice: string | null;
+  onSale: boolean;
+  stockStatus: string | null;
+  stockQuantity: number | null;
+  image: { sourceUrl: string; altText: string; mediaDetails: { width: number; height: number } | null } | null;
+  attributes: Array<{ value: string | null; label: string; name: string }>;
+}
+
 export interface ProductDetail extends ProductSummary {
+  type: "SIMPLE" | "VARIABLE" | string;
   description: string;
   reviewsAllowed: boolean;
   averageRating: number | null;
@@ -237,19 +257,24 @@ export interface ProductDetail extends ProductSummary {
   galleryImages: { nodes: Array<{ sourceUrl: string; altText: string; mediaDetails: { width: number; height: number } | null }> };
   productCategories: { nodes: Array<{ name: string; slug: string }> };
   defaultAttributes: ProductAttributeValue[];
+  attributes: ProductAttribute[];
+  variations: ProductVariation[];
   reviews: ProductReview[];
   related: ProductSummary[];
 }
 
 export async function fetchProductBySlug(slug: string): Promise<ProductDetail | null> {
-  const data = await gql<{ product: (Omit<ProductDetail, "defaultAttributes" | "reviews" | "related"> & {
+  const data = await gql<{ product: (Omit<ProductDetail, "defaultAttributes" | "attributes" | "variations" | "reviews" | "related"> & {
     defaultAttributes: { nodes: ProductAttributeValue[] } | null;
+    attributes: { nodes: ProductAttribute[] } | null;
+    variations: { nodes: Array<Omit<ProductVariation, "attributes"> & { attributes: { nodes: ProductVariation["attributes"] } | null }> } | null;
     reviews: { averageRating: number | null; edges: Array<{ rating: number; node: ProductReview }> } | null;
     related: { nodes: ProductSummary[] } | null;
   }) | null }>(
     `query ($slug: ID!) {
       product(id: $slug, idType: SLUG) {
         databaseId
+        type
         slug
         name
         shortDescription
@@ -262,6 +287,22 @@ export async function fetchProductBySlug(slug: string): Promise<ProductDetail | 
         ... on ProductWithPricing { price regularPrice }
         ... on ProductWithAttributes {
           defaultAttributes(first: 50) { nodes { label value } }
+          attributes(first: 50) { nodes { id name label variation options } }
+        }
+        ... on ProductWithVariations {
+          variations(first: 50) {
+            nodes {
+              databaseId
+              name
+              onSale
+              stockStatus
+              stockQuantity
+              price
+              regularPrice
+              image { sourceUrl altText mediaDetails { width height } }
+              attributes(first: 20) { nodes { value label name } }
+            }
+          }
         }
         image { sourceUrl altText mediaDetails { width height } }
         galleryImages(first: 8) {
@@ -302,23 +343,114 @@ export async function fetchProductBySlug(slug: string): Promise<ProductDetail | 
   return {
     ...p,
     defaultAttributes: p.defaultAttributes?.nodes ?? [],
+    attributes: p.attributes?.nodes ?? [],
+    variations: (p.variations?.nodes ?? []).map((v) => ({
+      ...v,
+      attributes: v.attributes?.nodes ?? [],
+    })),
     reviews: (p.reviews?.edges ?? []).map((e) => ({ ...e.node, rating: e.rating })),
     related: p.related?.nodes ?? [],
   };
 }
 
-export async function fetchCurrentUserDatabaseId(): Promise<number | null> {
-  const c = await cookies();
-  const authToken = c.get("authToken")?.value ?? null;
-  if (!authToken) return null;
-
-  const data = await gql<{ viewer: { databaseId: number } | null }>(
-    `query { viewer { databaseId } }`,
-    {},
-    { authToken },
-  );
-  return data?.viewer?.databaseId ?? null;
+export interface OrderAddress {
+  firstName: string | null;
+  lastName: string | null;
+  company: string | null;
+  address1: string | null;
+  address2: string | null;
+  city: string | null;
+  state: string | null;
+  postcode: string | null;
+  country: string | null;
+  email?: string | null;
+  phone?: string | null;
 }
+
+export interface OrderLineItem {
+  productId: number | null;
+  variationId: number | null;
+  quantity: number | null;
+  total: string;
+  subtotal: string;
+  product: { node: { databaseId: number; name: string; slug: string; image: { sourceUrl: string; altText: string } | null } } | null;
+  variation: { node: { databaseId: number; name: string; image: { sourceUrl: string; altText: string } | null } } | null;
+}
+
+export interface Order {
+  databaseId: number;
+  orderNumber: string;
+  orderKey: string;
+  status: string;
+  date: string;
+  total: string;
+  subtotal: string;
+  totalTax: string;
+  shippingTotal: string;
+  discountTotal: string;
+  paymentMethod: string | null;
+  paymentMethodTitle: string | null;
+  customerNote: string | null;
+  billing: OrderAddress;
+  shipping: OrderAddress;
+  lineItems: { nodes: OrderLineItem[] };
+  shippingLines: { nodes: Array<{ methodTitle: string; total: string }> };
+  feeLines: { nodes: Array<{ name: string; total: string }> };
+  taxLines: { nodes: Array<{ label: string; taxTotal: string }> };
+}
+
+export const ORDER_FRAGMENT = /* GraphQL */ `
+  fragment OrderFields on Order {
+    databaseId
+    orderNumber
+    orderKey
+    status
+    date
+    total
+    subtotal
+    totalTax
+    shippingTotal
+    discountTotal
+    paymentMethod
+    paymentMethodTitle
+    customerNote
+    billing {
+      firstName lastName company address1 address2
+      city state postcode country email phone
+    }
+    shipping {
+      firstName lastName company address1 address2
+      city state postcode country
+    }
+    lineItems {
+      nodes {
+        productId
+        variationId
+        quantity
+        total
+        subtotal
+        product {
+          node {
+            databaseId
+            name
+            slug
+            image { sourceUrl altText }
+          }
+        }
+        variation {
+          node {
+            databaseId
+            name
+            image { sourceUrl altText }
+          }
+        }
+      }
+    }
+    shippingLines { nodes { methodTitle total } }
+    feeLines { nodes { name total } }
+    taxLines { nodes { label taxTotal } }
+  }
+`;
 
 export async function fetchProductSlugs(): Promise<string[]> {
   const data = await gql<{ products: { nodes: Array<{ slug: string }> } }>(
@@ -337,7 +469,6 @@ export async function fetchAssetsByUri(uri: string): Promise<{
   importMap: Array<{ name: string; path: string }>;
 }> {
   const c = await cookies();
-  const authToken = c.get("authToken")?.value ?? null;
   const sessionToken = c.get("sessionToken")?.value ?? null;
 
   const data = await gql<{ assetsByUri: {
@@ -360,7 +491,7 @@ export async function fetchAssetsByUri(uri: string): Promise<{
       }
     }`,
     { uri },
-    { authToken, sessionToken },
+    { sessionToken },
   );
   const a = data?.assetsByUri;
   if (!a) return { scripts: [], stylesheets: [], importMap: [] };
@@ -400,7 +531,6 @@ export interface CartSnapshot {
 
 export async function fetchCart(): Promise<CartSnapshot | null> {
   const c = await cookies();
-  const authToken = c.get("authToken")?.value ?? null;
   const sessionToken = c.get("sessionToken")?.value ?? null;
 
   const { data } = await gqlWithSession<{ cart: CartSnapshot | null }>(
@@ -421,7 +551,7 @@ export async function fetchCart(): Promise<CartSnapshot | null> {
       }
     }`,
     {},
-    { authToken, sessionToken },
+    { sessionToken },
   );
   return data?.cart ?? null;
 }

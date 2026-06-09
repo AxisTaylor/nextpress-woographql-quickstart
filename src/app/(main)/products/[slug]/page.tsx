@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { fetchCurrentUserDatabaseId, fetchProductBySlug, fetchProductSlugs } from "@/lib/wp";
+import { fetchProductBySlug, fetchProductSlugs } from "@/lib/wp";
 import { AddToCartButton } from "@/components/AddToCartButton";
 import { ProductTabs } from "@/components/ProductTabs";
 import { StarRating } from "@/components/StarRating";
+import { VariableProductHero } from "@/components/VariableProductHero";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -37,10 +38,7 @@ function stripHtml(html: string): string {
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
-  const [product, customerUserId] = await Promise.all([
-    fetchProductBySlug(slug),
-    fetchCurrentUserDatabaseId(),
-  ]);
+  const product = await fetchProductBySlug(slug);
   if (!product) notFound();
 
   const inStock = product.stockStatus !== "OUT_OF_STOCK";
@@ -80,109 +78,113 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <span className="text-contrast/80">{product.name}</span>
       </nav>
 
-      <article className="flex-1 mx-auto w-full max-w-wide px-x-small py-medium grid gap-x-large lg:grid-cols-[1.1fr_1fr]">
-        <section className="flex flex-col gap-3">
-          {product.image ? (
-            <div
-              style={{ aspectRatio: heroRatio }}
-              className="relative bg-neutral overflow-hidden"
-            >
-              <Image
-                src={product.image.sourceUrl}
-                alt={product.image.altText || product.name}
-                fill
-                sizes="(min-width: 1024px) 660px, 100vw"
-                className="object-cover"
-                priority
+      {product.type === "VARIABLE" ? (
+        <VariableProductHero product={product} />
+      ) : (
+        <article className="flex-1 mx-auto w-full max-w-wide px-x-small py-medium grid gap-x-large lg:grid-cols-[1.1fr_1fr]">
+          <section className="flex flex-col gap-3">
+            {product.image ? (
+              <div
+                style={{ aspectRatio: heroRatio }}
+                className="relative bg-neutral overflow-hidden"
+              >
+                <Image
+                  src={product.image.sourceUrl}
+                  alt={product.image.altText || product.name}
+                  fill
+                  sizes="(min-width: 1024px) 660px, 100vw"
+                  className="object-cover"
+                  priority
+                />
+              </div>
+            ) : (
+              <div className="aspect-square bg-neutral" />
+            )}
+
+            {product.galleryImages?.nodes?.length > 0 && (
+              <div className="grid grid-cols-4 gap-2">
+                {product.galleryImages.nodes.slice(0, 8).map((img, i) => {
+                  const r = img.mediaDetails && img.mediaDetails.width > 0
+                    ? img.mediaDetails.width / img.mediaDetails.height
+                    : 1;
+                  return (
+                    <div
+                      key={i}
+                      style={{ aspectRatio: r }}
+                      className="relative bg-neutral overflow-hidden"
+                    >
+                      <Image
+                        src={img.sourceUrl}
+                        alt={img.altText || ""}
+                        fill
+                        sizes="120px"
+                        className="object-cover"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="flex flex-col gap-medium lg:sticky lg:top-medium lg:self-start">
+            {product.productCategories.nodes.length > 0 && (
+              <p className="text-x-small uppercase tracking-[0.25em] text-primary font-semibold">
+                {product.productCategories.nodes.map((c) => c.name).join(" / ")}
+              </p>
+            )}
+
+            <h1 className="text-max-72 font-black leading-[0.95] tracking-[-0.045em]">
+              {product.name}
+            </h1>
+
+            {product.shortDescription && (
+              <div
+                className="text-medium text-contrast/85 [&>p]:mb-3"
+                dangerouslySetInnerHTML={{ __html: product.shortDescription }}
               />
-            </div>
-          ) : (
-            <div className="aspect-square bg-neutral" />
-          )}
+            )}
 
-          {product.galleryImages?.nodes?.length > 0 && (
-            <div className="grid grid-cols-4 gap-2">
-              {product.galleryImages.nodes.slice(0, 8).map((img, i) => {
-                const r = img.mediaDetails && img.mediaDetails.width > 0
-                  ? img.mediaDetails.width / img.mediaDetails.height
-                  : 1;
-                return (
-                  <div
-                    key={i}
-                    style={{ aspectRatio: r }}
-                    className="relative bg-neutral overflow-hidden"
-                  >
-                    <Image
-                      src={img.sourceUrl}
-                      alt={img.altText || ""}
-                      fill
-                      sizes="120px"
-                      className="object-cover"
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
+            {product.reviewsAllowed && product.averageRating != null && (product.reviewCount ?? 0) > 0 && (
+              <a
+                href="#reviews"
+                className="inline-flex items-center gap-2 text-small text-contrast/75 hover:text-primary"
+              >
+                <StarRating value={product.averageRating} className="text-primary" />
+                <span>
+                  {product.averageRating.toFixed(1)} · {product.reviewCount} review{product.reviewCount === 1 ? "" : "s"}
+                </span>
+              </a>
+            )}
 
-        <section className="flex flex-col gap-medium lg:sticky lg:top-medium lg:self-start">
-          {product.productCategories.nodes.length > 0 && (
-            <p className="text-x-small uppercase tracking-[0.25em] text-primary font-semibold">
-              {product.productCategories.nodes.map((c) => c.name).join(" / ")}
+            <div className="flex items-baseline gap-x-small">
+              {product.onSale && product.regularPrice ? (
+                <>
+                  <span className="text-max-48 font-bold text-primary">{product.price}</span>
+                  <span className="text-x-large text-contrast/50 line-through">
+                    {product.regularPrice}
+                  </span>
+                  <span className="ml-x-small text-x-small uppercase tracking-[0.2em] bg-primary text-base px-2 py-1">
+                    Sale
+                  </span>
+                </>
+              ) : (
+                <span className="text-max-48 font-bold">{product.price}</span>
+              )}
+            </div>
+
+            <p className="text-x-small uppercase tracking-[0.2em]">
+              {inStock ? (
+                <span className="text-green-700">● In stock</span>
+              ) : (
+                <span className="text-red-600">● Out of stock</span>
+              )}
             </p>
-          )}
 
-          <h1 className="text-max-72 font-black leading-[0.95] tracking-[-0.045em]">
-            {product.name}
-          </h1>
-
-          <div className="flex items-baseline gap-x-small">
-            {product.onSale && product.regularPrice ? (
-              <>
-                <span className="text-max-48 font-bold text-primary">{product.price}</span>
-                <span className="text-x-large text-contrast/50 line-through">
-                  {product.regularPrice}
-                </span>
-                <span className="ml-x-small text-x-small uppercase tracking-[0.2em] bg-primary text-base px-2 py-1">
-                  Sale
-                </span>
-              </>
-            ) : (
-              <span className="text-max-48 font-bold">{product.price}</span>
-            )}
-          </div>
-
-          <p className="text-x-small uppercase tracking-[0.2em]">
-            {inStock ? (
-              <span className="text-green-700">● In stock</span>
-            ) : (
-              <span className="text-red-600">● Out of stock</span>
-            )}
-          </p>
-
-          {product.shortDescription && (
-            <div
-              className="text-medium text-contrast/85 [&>p]:mb-3"
-              dangerouslySetInnerHTML={{ __html: product.shortDescription }}
-            />
-          )}
-
-          {product.reviewsAllowed && product.averageRating != null && (product.reviewCount ?? 0) > 0 && (
-            <a
-              href="#reviews"
-              className="inline-flex items-center gap-2 text-small text-contrast/75 hover:text-primary"
-            >
-              <StarRating value={product.averageRating} className="text-primary" />
-              <span>
-                {product.averageRating.toFixed(1)} · {product.reviewCount} review{product.reviewCount === 1 ? "" : "s"}
-              </span>
-            </a>
-          )}
-
-          <AddToCartButton productId={product.databaseId} inStock={inStock} />
-        </section>
-      </article>
+            <AddToCartButton productId={product.databaseId} inStock={inStock} />
+          </section>
+        </article>
+      )}
 
       <div id="reviews">
         <ProductTabs
@@ -194,7 +196,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
           reviewCount={product.reviewCount}
           defaultAttributes={product.defaultAttributes}
           reviews={product.reviews}
-          customerUserId={customerUserId}
         />
       </div>
 

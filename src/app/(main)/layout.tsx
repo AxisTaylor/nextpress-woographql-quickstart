@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Outfit } from "next/font/google";
-import { SessionRefresher } from "@/components/SessionRefresher";
 
 import "@/app/globals.css";
 
@@ -20,10 +19,7 @@ export const metadata: Metadata = {
 export default function MainLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" className={`${outfit.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
-        {children}
-        <SessionRefresher />
-      </body>
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }
