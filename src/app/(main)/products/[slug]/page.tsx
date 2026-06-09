@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { fetchProductBySlug, fetchProductSlugs } from "@/lib/wp";
+import { fetchCurrentUserDatabaseId, fetchProductBySlug, fetchProductSlugs } from "@/lib/wp";
 import { AddToCartButton } from "@/components/AddToCartButton";
+import { ProductTabs } from "@/components/ProductTabs";
+import { StarRating } from "@/components/StarRating";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -35,7 +37,10 @@ function stripHtml(html: string): string {
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
-  const product = await fetchProductBySlug(slug);
+  const [product, customerUserId] = await Promise.all([
+    fetchProductBySlug(slug),
+    fetchCurrentUserDatabaseId(),
+  ]);
   if (!product) notFound();
 
   const inStock = product.stockStatus !== "OUT_OF_STOCK";
@@ -163,20 +168,35 @@ export default async function ProductPage({ params }: ProductPageProps) {
             />
           )}
 
-          <AddToCartButton productId={product.databaseId} inStock={inStock} />
+          {product.reviewsAllowed && product.averageRating != null && (product.reviewCount ?? 0) > 0 && (
+            <a
+              href="#reviews"
+              className="inline-flex items-center gap-2 text-small text-contrast/75 hover:text-primary"
+            >
+              <StarRating value={product.averageRating} className="text-primary" />
+              <span>
+                {product.averageRating.toFixed(1)} · {product.reviewCount} review{product.reviewCount === 1 ? "" : "s"}
+              </span>
+            </a>
+          )}
 
-          <details className="mt-medium border-t border-contrast/10 pt-x-small group">
-            <summary className="text-x-small uppercase tracking-[0.2em] font-semibold cursor-pointer list-none flex items-center justify-between">
-              Details
-              <span className="text-large group-open:rotate-45 transition">+</span>
-            </summary>
-            <div
-              className="mt-x-small text-medium text-contrast/85 [&>p]:mb-3 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:mb-3"
-              dangerouslySetInnerHTML={{ __html: product.description }}
-            />
-          </details>
+          <AddToCartButton productId={product.databaseId} inStock={inStock} />
         </section>
       </article>
+
+      <div id="reviews">
+        <ProductTabs
+          productId={product.databaseId}
+          productName={product.name}
+          description={product.description}
+          reviewsAllowed={product.reviewsAllowed}
+          averageRating={product.averageRating}
+          reviewCount={product.reviewCount}
+          defaultAttributes={product.defaultAttributes}
+          reviews={product.reviews}
+          customerUserId={customerUserId}
+        />
+      </div>
 
       {product.related.length > 0 && (
         <section className="bg-neutral border-t border-contrast/10 py-x-large">

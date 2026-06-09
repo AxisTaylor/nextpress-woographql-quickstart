@@ -215,15 +215,38 @@ export async function fetchProducts(first = 24): Promise<ProductSummary[]> {
   return data?.products?.nodes ?? [];
 }
 
+export interface ProductAttributeValue {
+  label: string;
+  value: string;
+}
+
+export interface ProductReview {
+  id: string;
+  databaseId: number;
+  date: string;
+  content: string;
+  rating: number;
+  author: { node: { name: string } } | null;
+}
+
 export interface ProductDetail extends ProductSummary {
   description: string;
+  reviewsAllowed: boolean;
+  averageRating: number | null;
+  reviewCount: number | null;
   galleryImages: { nodes: Array<{ sourceUrl: string; altText: string; mediaDetails: { width: number; height: number } | null }> };
   productCategories: { nodes: Array<{ name: string; slug: string }> };
+  defaultAttributes: ProductAttributeValue[];
+  reviews: ProductReview[];
   related: ProductSummary[];
 }
 
 export async function fetchProductBySlug(slug: string): Promise<ProductDetail | null> {
-  const data = await gql<{ product: ProductDetail | null }>(
+  const data = await gql<{ product: (Omit<ProductDetail, "defaultAttributes" | "reviews" | "related"> & {
+    defaultAttributes: { nodes: ProductAttributeValue[] } | null;
+    reviews: { averageRating: number | null; edges: Array<{ rating: number; node: ProductReview }> } | null;
+    related: { nodes: ProductSummary[] } | null;
+  }) | null }>(
     `query ($slug: ID!) {
       product(id: $slug, idType: SLUG) {
         databaseId
@@ -232,13 +255,32 @@ export async function fetchProductBySlug(slug: string): Promise<ProductDetail | 
         shortDescription
         description
         onSale
+        reviewsAllowed
+        averageRating
+        reviewCount
         ... on InventoriedProduct { stockStatus }
         ... on ProductWithPricing { price regularPrice }
+        ... on ProductWithAttributes {
+          defaultAttributes(first: 50) { nodes { label value } }
+        }
         image { sourceUrl altText mediaDetails { width height } }
         galleryImages(first: 8) {
           nodes { sourceUrl altText mediaDetails { width height } }
         }
         productCategories(first: 6) { nodes { name slug } }
+        reviews(first: 50) {
+          averageRating
+          edges {
+            rating
+            node {
+              id
+              databaseId
+              date
+              content
+              author { node { name } }
+            }
+          }
+        }
         related(first: 4) {
           nodes {
             databaseId
@@ -259,8 +301,23 @@ export async function fetchProductBySlug(slug: string): Promise<ProductDetail | 
   if (!p) return null;
   return {
     ...p,
-    related: (p as unknown as { related: { nodes: ProductSummary[] } }).related?.nodes ?? [],
+    defaultAttributes: p.defaultAttributes?.nodes ?? [],
+    reviews: (p.reviews?.edges ?? []).map((e) => ({ ...e.node, rating: e.rating })),
+    related: p.related?.nodes ?? [],
   };
+}
+
+export async function fetchCurrentUserDatabaseId(): Promise<number | null> {
+  const c = await cookies();
+  const authToken = c.get("authToken")?.value ?? null;
+  if (!authToken) return null;
+
+  const data = await gql<{ viewer: { databaseId: number } | null }>(
+    `query { viewer { databaseId } }`,
+    {},
+    { authToken },
+  );
+  return data?.viewer?.databaseId ?? null;
 }
 
 export async function fetchProductSlugs(): Promise<string[]> {
